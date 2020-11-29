@@ -28,54 +28,6 @@ import random
 
 """Convolution function """
 
-def MyConvolve(A, B):
-  # Allocate space for the arrays on the GPU
-  a_cuda = cuda.mem_alloc(A.nbytes)
-  b_cuda = cuda.mem_alloc(B.nbytes)
-  c_cuda = cuda.mem_alloc(A.nbytes)
-
-  # copy data from cpu (host) to gpu (device) allocated space
-  cuda.memcpy_htod(a_cuda, A)
-  cuda.memcpy_htod(b_cuda, B)
-
-  # GPU kenrel code - convolution implementation
-  convCudaScript = SourceModule("""
-  __global__ void conv1d(float *A, float *B, int lenA, int lenB, float* C){
-
-    // thread index
-    int tIndex = blockIdx.x * blockDim.x + threadIdx.x;
-
-    //  number of elements left or right of the middle element of B array (mask)
-    int r = lenA/2;
-
-    // begin from
-    int strt =  tIndex - r;
-
-    float sumOfMults = 0;
-
-    // loop over the elements of array B
-    for (int i = 0; i < lenB; i++) {
-      // throw outrange elements
-      if (((strt + i) >= 0) && (strt + i < lenA)) {
-      sumOfMults = sumOfMults + A[strt + i] * B[i];
-      }
-    }
-
-  C[tIndex] = sumOfMults;
-  } 
-  """)
-
-  # calculate blocks 
-  threads = 256;
-  blocks = int((len(A) + threads - 1) / threads
-  )
-  kernelFunction = SourceModule.get_function("conv1d")
-  kernelFunction(a_cuda, b_cuda, c_cuda, block=(blocks, 1, 1), grid=(1, 1, 1))
-
-  C = np.empty_like(A)
-  cuda.memcpy_dtoh(C, a_cuda)
-
-  return C
 
 def MyConvolve(A, B):
   print(A.nbytes)
