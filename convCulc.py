@@ -21,6 +21,9 @@ from pycuda.compiler import SourceModule
 # Import numpy and random in order to handle arrays
 import numpy as np
 import random
+# To handle .wav files
+from scipy.io.wavfile import read
+import scipy.io.wavfile as wavOut
 
 """Convolution function """
 
@@ -31,11 +34,7 @@ def MyConvolve(A, B):
   b_cuda = cuda.mem_alloc(B.nbytes)
   c_cuda = cuda.mem_alloc(A.nbytes)
 
-  c = []
-  for i in range(len(A)):
-    c.append(0.0)
-  C = np.array(c)
-  C = C.astype(np.float32)
+  C = np.empty_like(A)
 
   # copy data from cpu (host) to gpu (device) allocated space
   cuda.memcpy_htod(a_cuda, A)
@@ -56,13 +55,13 @@ def MyConvolve(A, B):
     // begin from
     int strt =  tIndex - r;
 
-    float sumOfMults = 0;
+    float sumOfMults = 0.f;
 
     // loop over the elements of array B
     for (int i = 0; i < lenB; i++) {
       // throw outrange elements
       if ((strt + i >= 0) && (strt + i < lenA)) {
-      sumOfMults = sumOfMults + (A[strt + i] * B[i]);
+      sumOfMults += (A[strt + i] * B[i]);
       }
     }
 
@@ -87,11 +86,10 @@ def MyConvolve(A, B):
 
 # array A with N random 32 bit floats
 a = []
-# N = int(input("N : "))
-N = 36
+N = int(input("N : "))
 
 for i in range(N):
-  a.append(random.uniform(0.0, 234.5))
+  a.append(random.uniform(0.0, 500.0))
 
 A = np.array(a)
 A = A.astype(np.float32)
@@ -106,3 +104,40 @@ print(C)
 
 """PART B"""
 
+# Pink noise
+
+# Read wav files
+SampleAudio = read("/content/drive/MyDrive/signal - systems/sample_audio.wav")
+PinkNoise = read("/content/drive/MyDrive/signal - systems/pink_noise.wav")
+
+# transform to arrays
+SampleAudioAr = np.array(SampleAudio[1],dtype=float)
+PinkNoiseAr = np.array(PinkNoise[1],dtype=float)
+
+#SampleAudioAr = np.asarray(SampleAudio[1])
+#PinkNoiseAr = np.asarray(PinkNoise[1])
+
+
+SampleAudioAr = SampleAudioAr.astype(np.float32)
+PinkNoiseAr = PinkNoiseAr.astype(np.float32)
+
+
+#PinkNoiseAr = PinkNoiseAr * 0.3
+
+rarray = MyConvolve(SampleAudioAr, PinkNoiseAr)
+
+
+result = "/content/drive/MyDrive/signal - systems/pinkNoise_sampleAudio2.wav"
+#wavOut.write(result, SampleAudio[0], rarray)
+
+# WhiteNoise signal --> with can use radnom values ( Spectrum should contain every frequency )
+
+WhiteNoise =  np.random.random_sample((132300,))
+
+WhiteNoise = WhiteNoise.astype(np.float32)
+
+rarray2 = MyConvolve(SampleAudioAr, WhiteNoise)
+
+result2 = "/content/drive/MyDrive/signal - systems/whiteNoise_sampleAudio.wav"
+
+wavOut.write(result2, SampleAudio[0], rarray2)
