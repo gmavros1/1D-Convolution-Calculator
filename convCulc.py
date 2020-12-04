@@ -29,37 +29,41 @@ import scipy.io.wavfile as wavOut
 
 def MyConvolve(A, B):
  
-  # Allocate space for the arrays on the GPU
+  # Desmeush xwrou sthn gpu
   a_cuda = cuda.mem_alloc(A.nbytes)
   b_cuda = cuda.mem_alloc(B.nbytes)
   c_cuda = cuda.mem_alloc(A.nbytes)
 
+  # dhmiourgia kainou array gia thn apo8hkeush tou apotelesmatos
   C = np.empty_like(A)
 
-  # copy data from cpu (host) to gpu (device) allocated space
+  # antigrafh dedomenwn apo thn cpu (host) ston xwro pou desmeusame sthn gpu (device) 
   cuda.memcpy_htod(a_cuda, A)
   cuda.memcpy_htod(b_cuda, B)
   cuda.memcpy_htod(c_cuda, C)
 
 
-  # GPU kenrel code - convolution implementation
+  # ulopoihsh sunarthshs upologismou sunelixis se cuda c
   convCudaScript = SourceModule("""
   __global__ void conv1d(float *A, float *B, int lenA, int lenB, float *C){
 
-    // thread index
+    // upologismos 8esis thread
     int tIndex = blockIdx.x * blockDim.x + threadIdx.x;
 
-    //  number of elements left or right of the middle element of B array (mask)
+    //  upologismos stoixeiwn aristera kai deksia toy meseou arithmou tou B array
     int r = int(lenA/2);
 
-    // begin from
+    // o arithmos tou thread pou jekinane ta epimerous athrismata tis sunelixis
     int strt =  tIndex - r;
 
+    // edo apo8hkeuetai to apotelesma kathe stoixeiou tou telikou array
     float sumOfMults = 0.f;
 
-    // loop over the elements of array B
+    // h exwterikh epanalypsh trehei ena ena ta stoixeia toy B array (mask)
     for (int i = 0; i < lenB; i++) {
-      // throw outrange elements
+      // sthn sunelixh twn arxikwn stoixeiwn kai twn telikwn, tuxainei kapoia 
+      // stoixeia na "kremane". Theoroume pws auta ta stoixeia poll/zontai me to 0
+      // opote den ta lambanoume upopsin sto a8roisma
       if ((strt + i >= 0) && (strt + i < lenA)) {
       sumOfMults += (A[strt + i] * B[i]);
       }
@@ -69,12 +73,14 @@ def MyConvolve(A, B):
   } 
   """)
 
-  # calculate blocks 
+
+  # upologismos blocks
   threads = 256;
   lenA = len(A)
   lenB = len(B)
   blocks = int((len(A) + threads - 1) / threads)
   kernelFunction = convCudaScript.get_function("conv1d")
+  # klhsh cuda sunarthshs
   kernelFunction(a_cuda, b_cuda, np.int32(lenA), np.int32(lenB), c_cuda, block=(blocks, 1, 1), grid=(1, 1, 1))
 
   
@@ -84,16 +90,18 @@ def MyConvolve(A, B):
 
 """PART A"""
 
-# array A with N random 32 bit floats
+# Kataskeuh tuxaias list A me N float stoixeia
 a = []
 N = int(input("N : "))
 
 for i in range(N):
   a.append(random.uniform(0.0, 500.0))
 
+# metatroph list se 32 bit float array
 A = np.array(a)
 A = A.astype(np.float32)
 
+# omoia gia to B
 b = [1/5, 1/5, 1/5, 1/5, 1/5]
 B = np.array(b)
 B = B.astype(np.float32)
@@ -106,38 +114,34 @@ print(C)
 
 # Pink noise
 
-# Read wav files
+# Anagnosh wav arxeiwn
 SampleAudio = read("/content/drive/MyDrive/signal - systems/sample_audio.wav")
 PinkNoise = read("/content/drive/MyDrive/signal - systems/pink_noise.wav")
 
-# transform to arrays
+# metatroph se arrays
+# e.x. To SampleAudior[0] afora to mhkos enw to SampleAudior[0] to shma auto kathe auto
 SampleAudioAr = np.array(SampleAudio[1],dtype=float)
 PinkNoiseAr = np.array(PinkNoise[1],dtype=float)
 
-#SampleAudioAr = np.asarray(SampleAudio[1])
-#PinkNoiseAr = np.asarray(PinkNoise[1])
-
-
+# h cuda xeirizetai 32 bir floats opote kanoume thn anagkaia metatroph
 SampleAudioAr = SampleAudioAr.astype(np.float32)
 PinkNoiseAr = PinkNoiseAr.astype(np.float32)
 
-
-#PinkNoiseAr = PinkNoiseAr * 0.3
-
+# klhsh sunarthshs
 rarray = MyConvolve(SampleAudioAr, PinkNoiseAr)
 
+#eggrafh apotelesmatos se wav arxeio
+result = "/content/drive/MyDrive/signal - systems/pinkNoise_sampleAudio3.wav"
+wavOut.write(result, SampleAudio[0], rarray)
 
-result = "/content/drive/MyDrive/signal - systems/pinkNoise_sampleAudio2.wav"
-#wavOut.write(result, SampleAudio[0], rarray)
-
-# WhiteNoise signal --> with can use radnom values ( Spectrum should contain every frequency )
-
+# dhmiourgeia leukou thorybou
 WhiteNoise =  np.random.random_sample((132300,))
 
+# antistoixa gia to arxeio tou leukoy thorubou
 WhiteNoise = WhiteNoise.astype(np.float32)
 
 rarray2 = MyConvolve(SampleAudioAr, WhiteNoise)
 
-result2 = "/content/drive/MyDrive/signal - systems/whiteNoise_sampleAudio.wav"
+result2 = "/content/drive/MyDrive/signal - systems/whiteNoise_sampleAudio1.wav"
 
 wavOut.write(result2, SampleAudio[0], rarray2)
